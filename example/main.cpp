@@ -3,7 +3,7 @@
 
 int main()
 {
-  Logger logger;
-  std::cout << "Hello World!" << std::endl;
+  VERBOSE << "Hello World!" << std::endl;
+  DEBUG << "Hello" << " World" << "!" << std::endl;
   return 0;
 }

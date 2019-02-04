@@ -1,16 +1,25 @@
 #include "Logger.hpp"
 
 #include <iostream>
+#include <sstream>
+#include <thread>
+
+Logger * Logger::m_instance = nullptr;
 
 class Logger::Impl
 {
 public:
-  void foo()
-  {
-  }
+  Impl()
+  {}
 private:
-  int asdf;
 };
+
+Logger * Logger::Instance()
+{
+  if (!m_instance)
+    m_instance = new Logger;
+  return m_instance;
+}
 
 Logger::Logger()
   : m_impl(new Impl)
@@ -19,6 +28,3 @@ Logger::Logger()
 }
 
 Logger::~Logger() = default;
-
-Logger::Logger(Logger&&) = default;
-Logger& Logger::operator=(Logger&&) = default;
