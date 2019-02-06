@@ -1,9 +1,13 @@
 #include "../logger/Logger.hpp"
 #include <iostream>
 
+
+
 int main()
 {
-  VERBOSE << "Hello World!" << std::endl;
+  for (int i = 0; i < 255; ++i)
+    VERBOSE << "Hello World! " << i << std::endl;
   DEBUG << "Hello" << " World" << "!" << std::endl;
+  STOPLOGGER
   return 0;
 }
