@@ -1,94 +1,103 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
+#include "Writer.hpp"
+
 #include <memory>
 #include <iostream>
-#include <sstream>
 #include <mutex>
 #include <vector>
 
-class Writer
-{
-  friend class WriterExclusivePtr;
-  friend class Logger;
-public:
-  Writer();
-  ~Writer();
-  Writer(const Writer&);
-
-  Writer & operator << (std::ostream& data(std::ostream&))
-  {
-    m_stream << data;
-    return *this;
-  }
-  template<typename T> Writer & operator << (const T& data)
-  {
-    m_stream << data;
-    return *this;
-  }
-
-  std::mutex m_mutex;
-private:
-  std::stringstream m_stream;
-};
-
 /// Class around Writer that unlocks Writer's mutex once WriterExclusivePtr is deleted
-class WriterExclusivePtr
+template <typename T>
+class UnlockablePtr
 {
   friend class Logger;
 public:
-  WriterExclusivePtr(WriterExclusivePtr && ptr)
-    : m_ptr(ptr.m_ptr)
+  UnlockablePtr(UnlockablePtr && ptr)
+    : m_ptr(ptr.m_ptr),
+      m_mutex(ptr.m_mutex)
   {
     ptr.m_ptr = nullptr;
+    ptr.m_mutex = nullptr;
   }
-  ~WriterExclusivePtr()
+  ~UnlockablePtr()
   {
-    m_ptr->m_mutex.unlock();
+    if (m_mutex)
+      m_mutex->unlock();
   }
-  Writer * operator ->()
-  {
-    return m_ptr;
-  }
-  Writer const * operator ->() const
+  T * operator ->()
   {
     return m_ptr;
   }
-  Writer & operator << (std::ostream& data(std::ostream&))
+  T const * operator ->() const
+  {
+    return m_ptr;
+  }
+  T & operator << (std::ostream& data(std::ostream&))
   {
     return *m_ptr << data;
   }
-  template<typename T> Writer & operator << (const T& data)
+  template<typename Y> T & operator << (const Y& data)
   {
     return (*m_ptr << data);
   }
 
 private:
-  WriterExclusivePtr(Writer *ptr)
-    : m_ptr(ptr)
+  UnlockablePtr(T * ptr, std::mutex * mutex)
+    : m_ptr(ptr),
+      m_mutex(mutex)
   {
   }
-  WriterExclusivePtr(WriterExclusivePtr const &)
+  UnlockablePtr(UnlockablePtr const &)
   {
   }
-  WriterExclusivePtr & operator = (WriterExclusivePtr const &)
+  UnlockablePtr & operator = (UnlockablePtr const &)
   {
     return *this;
   }
-  Writer * m_ptr;
+  T * m_ptr;
+  std::mutex * m_mutex;
 };
 
 class Logger
 {
 public:
   static Logger * Instance();
-  WriterExclusivePtr getWriter();
+
+  /// Set the name of the log file
+  void setLogFile(const std::string & path);
+
+  /// gets a Writer object for printing
+  /// and prints a time stamp on the start of the message
+  /// UnlockablePtr should be go out of scope before
+  /// stop() is called.
+  UnlockablePtr<Writer> getWriter();
+
+  /// Gets a Writer and
+  /// @todo do these methods with a single function
+  UnlockablePtr<Writer> getWriterVerbose();
+#ifdef _DEBUG
+  UnlockablePtr<Writer> getWriterDebug();
+#else
+  /// @todo find a better way of doing this
+  /// It can be problematic if the user assumes the method
+  /// will return UnlockablePtr<Writer>
+  UnlockablePtr<NullLogger> getWriterDebug();
+#endif
+  UnlockablePtr<Writer> getWriterInfo();
+  UnlockablePtr<Writer> getWriterWarning();
+  UnlockablePtr<Writer> getWriterError();
+  UnlockablePtr<Writer> getWriterFatal();
+
+  /// Stops logger and synchronises with the printing thread
   void stop();
 
 private:
   Logger();
   ~Logger();
   static Logger * m_instance;
+  static std::mutex m_instanceMutex;
   class Impl;
   std::unique_ptr<Impl> m_impl;
 };
@@ -105,17 +114,17 @@ public:
     return *this;
   }
 };
+
 static NullLogger s_nullLogger;
 
-#define VERBOSE (Logger::Instance()->getWriter() << "Verbose: ")
-#define INFO (Logger::Instance()->getWriter() << "Info: ")
-#ifdef _DEBUG
-#define DEBUG (Logger::Instance()->getWriter() << "Debug: ")
-#else
-#define DEBUG s_nullLogger
-#endif
-#define ERROR (Logger::Instance()->getWriter() << "Error: ")
-#define FATAL (Logger::Instance()->getWriter() << "FATAL: ")
+/// Sometimes people just want print a simple message
+/// Let's make their life easier
+#define VERBOSE Logger::Instance()->getWriterVerbose()
+#define INFO Logger::Instance()->getWriterInfo()
+#define DEBUG Logger::Instance()->getWriterDebug()
+#define WARNING Logger::Instance()->getWriterWarning()
+#define ERROR Logger::Instance()->getWriterError()
+#define FATAL Logger::Instance()->getWriterFatal()
 #define STOPLOGGER Logger::Instance()->stop();
 
 
