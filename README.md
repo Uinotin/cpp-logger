@@ -14,5 +14,7 @@ Overall this is a very C++11-> implementation in the way that there is a certain
 
 
 How to compile:
+
 cmake .
+
 make
